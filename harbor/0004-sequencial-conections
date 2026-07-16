@@ -1,0 +1,71 @@
+# Harbor Journal 004
+
+**Date:** July 15, 2026
+
+## Today's Goal
+
+Transform Harbor from a server that handles a single request into one that remains available to receive requests continuously.
+
+## What Was Done
+
+Today Harbor stopped terminating after serving its first client.
+
+The server now runs inside a continuous loop, repeatedly waiting for new incoming connections through `listener.accept()`.
+
+Each request follows the same execution flow:
+
+```text
+Accept connection
+        ↓
+Read request
+        ↓
+Parse request line
+        ↓
+Send response
+        ↓
+Wait for the next connection
+```
+
+This allows Harbor to remain running indefinitely while serving one request at a time.
+
+## Learning
+
+Today's session focused on understanding how blocking TCP servers actually work.
+
+One important realization was that `TcpListener` does not create or own a dedicated thread.
+
+Instead, the main thread itself becomes blocked while waiting inside `listener.accept()`.
+
+The operating system is responsible for monitoring the listening socket and waking the application only when a new connection arrives.
+
+This means the server is not constantly consuming CPU while waiting for clients.
+
+Another important concept was understanding why Harbor is currently a single-threaded server.
+
+While the application is reading, parsing and responding to one request, no other connection can be processed because the main thread is busy.
+
+Additional incoming connections are temporarily queued by the operating system until Harbor calls `accept()` again.
+
+## Architecture Decisions
+
+No new modules or abstractions were introduced today.
+
+Keeping the request handling inside `main.rs` remains the simplest and clearest solution.
+
+Harbor's philosophy continues to be:
+
+> Introduce abstractions only when they solve a real problem.
+
+The only architectural change was extending the server lifecycle, allowing it to continuously serve clients without increasing unnecessary complexity.
+
+## Next Step
+
+The next milestone will be deciding how Harbor should evolve from a sequential server into one capable of handling multiple clients more efficiently, while preserving its simplicity.
+
+## Thoughts
+
+Today's implementation was small, but it fundamentally changed Harbor's behavior.
+
+Before today, Harbor behaved like a program that happened to answer an HTTP request.
+
+Now it behaves like an actual server, remaining alive and always ready to accept the next client.
